@@ -1,91 +1,13 @@
+// main.rs
 mod keyboard_input;
+mod logging;
 
-use egui::{ScrollArea, Ui, Color32, ComboBox, Layout, Align};
-use log::{Level, LevelFilter, Record};
-use std::sync::{Arc, Mutex};
+use egui::{ComboBox, Layout, Align};
+use log::{LevelFilter, info, Level};
+use std::sync::{mpsc, Arc, Mutex};
 use eframe;
-
-struct LogView {
-    logs: Arc<Mutex<Vec<String>>>,
-    log_level: LevelFilter, // 当前日志显示级别
-}
-
-impl LogView {
-    fn new(logs: Arc<Mutex<Vec<String>>>) -> Self {
-        Self {
-            logs,
-            log_level: LevelFilter::Info, // 默认显示 INFO 及以上级别的日志
-        }
-    }
-
-    fn ui(&mut self, ui: &mut Ui) {
-        // 显示日志视图
-        ScrollArea::vertical().show(ui, |ui| {
-            // 绘制白色背景
-            let rect = ui.max_rect();
-            ui.painter().rect_filled(rect, 0.0, Color32::WHITE);
-
-            let logs = self.logs.lock().unwrap();
-            for log in logs.iter() {
-                // 根据日志级别过滤显示
-                let log_level = match log {
-                    _ if log.contains("[ERROR]") => Level::Error,
-                    _ if log.contains("[WARN]") => Level::Warn,
-                    _ if log.contains("[INFO]") => Level::Info,
-                    _ if log.contains("[DEBUG]") => Level::Debug,
-                    _ if log.contains("[TRACE]") => Level::Trace,
-                    _ => Level::Info,
-                };
-
-                if log_level <= self.log_level {
-                    // 根据日志级别设置颜色
-                    let color = match log_level {
-                        Level::Error => Color32::RED,
-                        Level::Warn => Color32::YELLOW,
-                        Level::Info => Color32::BLACK,
-                        Level::Debug => Color32::GRAY,
-                        Level::Trace => Color32::GRAY,
-                    };
-
-                    // 显示带颜色的日志
-                    ui.colored_label(color, log);
-                }
-            }
-        });
-    }
-
-    fn clear(&mut self) {
-        let mut logs = self.logs.lock().unwrap();
-        logs.clear();
-    }
-}
-
-struct Logger {
-    logs: Arc<Mutex<Vec<String>>>,
-}
-
-impl Logger {
-    fn new(logs: Arc<Mutex<Vec<String>>>) -> Self {
-        Self { logs }
-    }
-}
-
-impl log::Log for Logger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            // 添加日志级别标识
-            let log = format!("[{}] {}", record.level(), record.args());
-            let mut logs = self.logs.lock().unwrap();
-            logs.push(log);
-        }
-    }
-
-    fn flush(&self) {}
-}
+use logging::{LogView, Logger, format_log};
+use keyboard_input::{start_keyboard_input, stop_keyboard_input};
 
 fn main() {
     let logs = Arc::new(Mutex::new(Vec::new()));
@@ -93,6 +15,8 @@ fn main() {
 
     log::set_boxed_logger(Box::new(logger)).unwrap();
     log::set_max_level(LevelFilter::Trace); // 允许所有级别的日志
+
+    info!("{}", format_log(Level::Info, format_args!("Application started.")));
 
     // 使用 eframe 创建窗口
     let options = eframe::NativeOptions::default();
@@ -105,12 +29,16 @@ fn main() {
 
 struct MyApp {
     log_view: LogView,
+    key_press_sender: Option<mpsc::Sender<()>>,
+    is_key_press_running: bool,
 }
 
 impl MyApp {
     fn new(logs: Arc<Mutex<Vec<String>>>) -> Self {
         Self {
             log_view: LogView::new(logs),
+            key_press_sender: None,
+            is_key_press_running: false,
         }
     }
 }
@@ -122,16 +50,37 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 // 左侧放置按钮
                 if ui.button("Info").clicked() {
+                    info!("{}", format_log(Level::Info, format_args!("Info button clicked.")));
                     log::info!("This is an info message");
                 }
                 if ui.button("Debug").clicked() {
+                    info!("{}", format_log(Level::Info, format_args!("Debug button clicked.")));
                     log::debug!("This is a debug message");
                 }
                 if ui.button("Error").clicked() {
+                    info!("{}", format_log(Level::Info, format_args!("Error button clicked.")));
                     log::error!("This is an error message");
                 }
                 if ui.button("Clear Logs").clicked() {
+                    info!("{}", format_log(Level::Info, format_args!("Clear Logs button clicked.")));
                     self.log_view.clear();
+                }
+
+                if self.is_key_press_running {
+                    if ui.button("Stop Key Press").clicked() {
+                        info!("{}", format_log(Level::Info, format_args!("Stop Key Press button clicked.")));
+                        if let Some(sender) = self.key_press_sender.take() {
+                            stop_keyboard_input(sender);
+                            self.is_key_press_running = false;
+                        }
+                    }
+                } else {
+                    if ui.button("Start Key Press").clicked() {
+                        info!("{}", format_log(Level::Info, format_args!("Start Key Press button clicked.")));
+                        let sender = start_keyboard_input();
+                        self.key_press_sender = Some(sender);
+                        self.is_key_press_running = true;
+                    }
                 }
 
                 // 右侧放置日志级别下拉框
