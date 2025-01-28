@@ -1,7 +1,9 @@
+#![windows_subsystem = "windows"]
+// main.rs
 mod keyboard_input;
 mod logging;
 
-use egui::{ComboBox, Layout, Align};
+use egui::{ComboBox, Layout, Align, Window};
 use log::{LevelFilter, info};
 use std::sync::{mpsc, Arc, Mutex};
 use eframe;
@@ -34,14 +36,19 @@ struct MyApp {
     log_view: LogView,
     key_press_sender: Option<mpsc::Sender<()>>,
     is_key_press_running: bool,
+    show_trace_warning: bool,
+    previous_log_level: LevelFilter,
 }
 
 impl MyApp {
     fn new(logs: Arc<Mutex<Vec<String>>>) -> Self {
+        let log_view = LogView::new(logs);
         Self {
-            log_view: LogView::new(logs),
+            log_view: log_view.clone(),
             key_press_sender: None,
             is_key_press_running: false,
+            show_trace_warning: false,
+            previous_log_level: log_view.log_level,
         }
     }
 }
@@ -89,11 +96,18 @@ impl eframe::App for MyApp {
                     ComboBox::from_id_salt("log_level")
                         .selected_text(format!("{:?}", self.log_view.log_level))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Error, "Error");
-                            ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Warn, "Warn");
-                            ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Info, "Info");
-                            ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Debug, "Debug");
-                            ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Trace, "Trace");
+                            let mut new_log_level = self.log_view.log_level;
+                            for level in [LevelFilter::Error, LevelFilter::Warn, LevelFilter::Info, LevelFilter::Debug, LevelFilter::Trace] {
+                                let response = ui.selectable_value(&mut new_log_level, level, format!("{:?}", level));
+                                if response.clicked() {
+                                    if level == LevelFilter::Trace {
+                                        self.previous_log_level = self.log_view.log_level;
+                                        self.show_trace_warning = true;
+                                    } else {
+                                        self.log_view.log_level = level;
+                                    }
+                                }
+                            }
                         });
                 });
             });
@@ -104,5 +118,22 @@ impl eframe::App for MyApp {
             // 显示日志视图
             self.log_view.ui(ui);
         });
+
+        if self.show_trace_warning {
+            Window::new("Warning")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.label("Switching to Trace level will generate a large number of logs. Are you sure?");
+                    if ui.button("Yes").clicked() {
+                        self.log_view.log_level = LevelFilter::Trace;
+                        self.show_trace_warning = false;
+                    }
+                    if ui.button("No").clicked() {
+                        self.log_view.log_level = self.previous_log_level;
+                        self.show_trace_warning = false;
+                    }
+                });
+        }
     }
 }

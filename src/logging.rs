@@ -26,7 +26,8 @@ impl LogView {
             .auto_shrink([false, false]) // 禁止自动缩小
             .show(ui, |ui| {
                 if let Ok(logs) = self.logs.lock() {
-                    for log in logs.iter() {
+                    // 从后往前遍历日志，这样新日志会显示在最上面
+                    for log in logs.iter().rev() {
                         // 根据日志级别过滤显示
                         let log_level = match log {
                             _ if log.contains("[ERROR]") => Level::Error,
@@ -62,6 +63,16 @@ impl LogView {
     }
 }
 
+// 为 LogView 实现 Clone 特性
+impl Clone for LogView {
+    fn clone(&self) -> Self {
+        Self {
+            logs: self.logs.clone(),
+            log_level: self.log_level,
+        }
+    }
+}
+
 // 自定义日志收集器
 struct LogCollector(Arc<Mutex<Vec<String>>>);
 
@@ -69,7 +80,8 @@ impl Write for LogCollector {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let log = String::from_utf8_lossy(buf).to_string();
         if let Ok(mut logs) = self.0.lock() {
-            logs.push(log);
+            // 将新日志插入到列表头部
+            logs.insert(0, log);
         }
         Ok(buf.len())
     }
@@ -86,7 +98,7 @@ pub fn setup_logger(logs: Arc<Mutex<Vec<String>>>) {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         let current_thread = std::thread::current();
         let thread_name = current_thread.name().unwrap_or("<unnamed>");
-        writeln!(buf, "[{}] [{}] [{}] {}", now, thread_name, record.level(), record.args())
+        write!(buf, "[{}] [{}] [{}] {}", now, thread_name, record.level(), record.args())
     });
     builder.filter(None, LevelFilter::Trace); // 允许所有级别的日志
     builder.target(env_logger::Target::Pipe(Box::new(LogCollector(logs))));
