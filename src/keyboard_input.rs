@@ -1,80 +1,56 @@
-// keyboard_input.rs
 use std::sync::mpsc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use std::time::Duration;
-use winapi::um::winuser::{keybd_event, VkKeyScanA, MapVirtualKeyA, KEYEVENTF_KEYUP};
+use std::time::{Duration};
+use winapi::um::winuser::{keybd_event, VK_SCROLL, KEYEVENTF_KEYUP};
 use log::{info, Level};
 use crate::logging::format_log;
 
-// 启动键盘输入线程并返回一个停止信号发送器
+// 静态原子计数器，用于生成唯一的线程名
+static THREAD_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+fn press_scroll_lock() {
+    unsafe {
+        // 使用 VK_SCROLL 作为 Scroll Lock 键的虚拟键码
+        keybd_event(VK_SCROLL as u8, 0, 0, 0); // 按下 Scroll Lock 键
+        keybd_event(VK_SCROLL as u8, 0, KEYEVENTF_KEYUP, 0); // 释放 Scroll Lock 键
+    }
+    thread::sleep(Duration::from_millis(500)); // 暂停 0.5 秒
+}
+
 pub fn start_keyboard_input() -> mpsc::Sender<()> {
     let (tx, rx) = mpsc::channel();
 
-    // 使用 thread::Builder 创建命名线程
-    let _ = thread::Builder::new()
-        .name("KeyboardInputThread".to_string())
+    // 使用原子计数器生成唯一的线程名
+    let thread_id = THREAD_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let thread_name = format!("KeyboardInputThread-{}", thread_id);
+
+    // 克隆 thread_name 用于闭包
+    let thread_name_clone = thread_name.clone();
+
+    thread::Builder::new()
+        .name(thread_name_clone.clone()) // 设置线程名
         .spawn(move || {
-            loop {
-                // 检查是否收到停止信号
-                if let Ok(_) = rx.try_recv() {
-                    // 使用 format_args! 转换 &str 为 Arguments
-                    info!("{}", format_log(Level::Info, format_args!("Keyboard input thread is stopping.")));
-                    break;
-                }
+            info!("{}", format_log(Level::Info, format_args!("Thread '{}' started.", thread_name_clone)));
 
-                // 按下并释放 Scroll Lock 键两次
+            while rx.try_recv().is_err() {
                 for _ in 0..2 {
-                    let vk_scroll_lock;
-                    unsafe {
-                        vk_scroll_lock = VkKeyScanA((b'S' as i32).try_into().unwrap()) & 0xff;
-                    }
-                    let vk_scroll_lock_u32 = match vk_scroll_lock.try_into() {
-                        Ok(val) => val,
-                        Err(_) => {
-                            eprintln!("Failed to convert vk_scroll_lock to u32");
-                            continue;
-                        }
-                    };
-                    let vk_scroll_lock_u8 = match vk_scroll_lock.try_into() {
-                        Ok(val) => val,
-                        Err(_) => {
-                            eprintln!("Failed to convert vk_scroll_lock to u8");
-                            continue;
-                        }
-                    };
-                    let map_virtual_key_result_u8;
-                    unsafe {
-                        map_virtual_key_result_u8 = match MapVirtualKeyA(vk_scroll_lock_u32, 0).try_into() {
-                            Ok(val) => val,
-                            Err(_) => {
-                                eprintln!("Failed to convert MapVirtualKeyA result to u8");
-                                continue;
-                            }
-                        };
-                    }
-                    unsafe {
-                        keybd_event(vk_scroll_lock_u8, map_virtual_key_result_u8, 0, 0);
-                        keybd_event(vk_scroll_lock_u8, map_virtual_key_result_u8, KEYEVENTF_KEYUP, 0);
-                    }
+                    press_scroll_lock();
                 }
-
-                // 使用 format_args! 转换 &str 为 Arguments
                 info!("{}", format_log(Level::Info, format_args!("Performed Scroll Lock key press and release twice.")));
-
-                // 等待 2 分钟
-                thread::sleep(Duration::from_secs(120));
+                thread::sleep(Duration::from_secs(120)); // 等待 2 分钟
             }
-        });
 
-    // 使用 format_args! 转换 &str 为 Arguments
-    info!("{}", format_log(Level::Info, format_args!("Keyboard input thread has started.")));
+            info!("{}", format_log(Level::Info, format_args!("Thread '{}' is stopping.", thread_name_clone)));
+        })
+        .unwrap();
+
+    info!("{}", format_log(Level::Info, format_args!("Keyboard input thread '{}' has started.", thread_name)));
 
     tx
 }
 
-// 停止键盘输入线程
 pub fn stop_keyboard_input(sender: mpsc::Sender<()>) {
-    // 使用 format_args! 转换 &str 为 Arguments
     info!("{}", format_log(Level::Info, format_args!("Sending stop signal to keyboard input thread.")));
     let _ = sender.send(());
 }

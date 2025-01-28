@@ -21,10 +21,6 @@ impl LogView {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         // 显示日志视图
         egui::ScrollArea::vertical().show(ui, |ui| {
-            // 绘制白色背景
-            let rect = ui.max_rect();
-            ui.painter().rect_filled(rect, 0.0, egui::Color32::WHITE);
-
             let logs = self.logs.lock().unwrap();
             for log in logs.iter() {
                 // 根据日志级别过滤显示
@@ -42,7 +38,7 @@ impl LogView {
                     let color = match log_level {
                         Level::Error => egui::Color32::RED,
                         Level::Warn => egui::Color32::YELLOW,
-                        Level::Info => egui::Color32::BLACK,
+                        Level::Info => egui::Color32::WHITE,
                         Level::Debug => egui::Color32::GRAY,
                         Level::Trace => egui::Color32::GRAY,
                     };

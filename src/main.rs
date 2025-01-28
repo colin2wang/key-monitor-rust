@@ -18,10 +18,15 @@ fn main() {
 
     info!("{}", format_log(Level::Info, format_args!("Application started.")));
 
+    // 获取 Cargo.toml 中的版本号
+    let version = env!("CARGO_PKG_VERSION");
+    // 构建包含版本号的窗口标题
+    let window_title = format!("Log Viewer v{}", version);
+
     // 使用 eframe 创建窗口
     let options = eframe::NativeOptions::default();
     let _ = eframe::run_native(
-        "Log Viewer",
+        &window_title,
         options,
         Box::new(|_cc| Box::new(MyApp::new(logs))),
     );
