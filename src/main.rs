@@ -1,22 +1,20 @@
-// main.rs
 mod keyboard_input;
 mod logging;
 
 use egui::{ComboBox, Layout, Align};
-use log::{LevelFilter, info, Level};
+use log::{LevelFilter, info};
 use std::sync::{mpsc, Arc, Mutex};
 use eframe;
-use logging::{LogView, Logger, format_log};
+use logging::{LogView, setup_logger};
 use keyboard_input::{start_keyboard_input, stop_keyboard_input};
 
 fn main() {
     let logs = Arc::new(Mutex::new(Vec::new()));
-    let logger = Logger::new(logs.clone());
 
-    log::set_boxed_logger(Box::new(logger)).unwrap();
-    log::set_max_level(LevelFilter::Trace); // 允许所有级别的日志
+    // 调用 logging.rs 中的 setup_logger 函数进行日志配置
+    setup_logger(logs.clone());
 
-    info!("{}", format_log(Level::Info, format_args!("Application started.")));
+    info!("Application started.");
 
     // 获取 Cargo.toml 中的版本号
     let version = env!("CARGO_PKG_VERSION");
@@ -28,7 +26,7 @@ fn main() {
     let _ = eframe::run_native(
         &window_title,
         options,
-        Box::new(|_cc| Box::new(MyApp::new(logs))),
+        Box::new(|_cc| Ok(Box::new(MyApp::new(logs))))
     );
 }
 
@@ -55,25 +53,22 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 // 左侧放置按钮
                 if ui.button("Info").clicked() {
-                    info!("{}", format_log(Level::Info, format_args!("Info button clicked.")));
-                    log::info!("This is an info message");
+                    info!("Info button clicked.");
                 }
                 if ui.button("Debug").clicked() {
-                    info!("{}", format_log(Level::Info, format_args!("Debug button clicked.")));
                     log::debug!("This is a debug message");
                 }
                 if ui.button("Error").clicked() {
-                    info!("{}", format_log(Level::Info, format_args!("Error button clicked.")));
                     log::error!("This is an error message");
                 }
                 if ui.button("Clear Logs").clicked() {
-                    info!("{}", format_log(Level::Info, format_args!("Clear Logs button clicked.")));
+                    info!("Clear Logs button clicked.");
                     self.log_view.clear();
                 }
 
                 if self.is_key_press_running {
                     if ui.button("Stop Key Press").clicked() {
-                        info!("{}", format_log(Level::Info, format_args!("Stop Key Press button clicked.")));
+                        info!("Stop Key Press button clicked.");
                         if let Some(sender) = self.key_press_sender.take() {
                             stop_keyboard_input(sender);
                             self.is_key_press_running = false;
@@ -81,7 +76,7 @@ impl eframe::App for MyApp {
                     }
                 } else {
                     if ui.button("Start Key Press").clicked() {
-                        info!("{}", format_log(Level::Info, format_args!("Start Key Press button clicked.")));
+                        info!("Start Key Press button clicked.");
                         let sender = start_keyboard_input();
                         self.key_press_sender = Some(sender);
                         self.is_key_press_running = true;
@@ -91,7 +86,7 @@ impl eframe::App for MyApp {
                 // 右侧放置日志级别下拉框
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label("Log Level:");
-                    ComboBox::from_id_source("log_level")
+                    ComboBox::from_id_salt("log_level")
                         .selected_text(format!("{:?}", self.log_view.log_level))
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.log_view.log_level, LevelFilter::Error, "Error");
