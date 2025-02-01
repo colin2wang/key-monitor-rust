@@ -2,17 +2,17 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration};
-use winapi::um::winuser::{keybd_event, VK_SCROLL, KEYEVENTF_KEYUP};
+use winapi::um::winuser::{keybd_event, VK_NUMLOCK, KEYEVENTF_KEYUP};
 use log::{info};
 
 // 静态原子计数器，用于生成唯一的线程名
 static THREAD_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-fn press_scroll_lock() {
+fn press_number_lock() {
     unsafe {
-        // 使用 VK_SCROLL 作为 Scroll Lock 键的虚拟键码
-        keybd_event(VK_SCROLL as u8, 0, 0, 0); // 按下 Scroll Lock 键
-        keybd_event(VK_SCROLL as u8, 0, KEYEVENTF_KEYUP, 0); // 释放 Scroll Lock 键
+        // 使用 VK_NUMLOCK 作为 Number Lock 键的虚拟键码
+        keybd_event(VK_NUMLOCK as u8, 0, 0, 0); // 按下 Number Lock 键
+        keybd_event(VK_NUMLOCK as u8, 0, KEYEVENTF_KEYUP, 0); // 释放 Number Lock 键
     }
     thread::sleep(Duration::from_millis(500)); // 暂停 0.5 秒
 }
@@ -34,9 +34,9 @@ pub fn start_keyboard_input() -> mpsc::Sender<()> {
 
             while rx.try_recv().is_err() {
                 for _ in 0..2 {
-                    press_scroll_lock();
+                    press_number_lock();
                 }
-                info!("Performed Scroll Lock key press and release twice.");
+                info!("Performed Number Lock key press and release twice.");
                 thread::sleep(Duration::from_secs(120)); // 等待 2 分钟
             }
 
