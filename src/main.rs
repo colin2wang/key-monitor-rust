@@ -1,29 +1,28 @@
 #![windows_subsystem = "windows"]
-// main.rs
-mod keyboard_input;
-mod logging;
+
+mod logger;
+mod keyboard_controller;
 
 use egui::{ComboBox, Layout, Align, Window};
 use log::{LevelFilter, info};
 use std::sync::{mpsc, Arc, Mutex};
 use eframe;
-use logging::{LogView, setup_logger};
-use keyboard_input::{start_keyboard_input, stop_keyboard_input};
+use logger::{LogView, setup_logger};
+use keyboard_controller::{start_keyboard_input, stop_keyboard_input};
 
 fn main() {
     let logs = Arc::new(Mutex::new(Vec::new()));
 
-    // 调用 logging.rs 中的 setup_logger 函数进行日志配置
+    // Initialize logging system
     setup_logger(logs.clone());
 
-    info!("Application started.");
+    info!("Application started");
 
-    // 获取 Cargo.toml 中的版本号
+    // Get version number
     let version = env!("CARGO_PKG_VERSION");
-    // 构建包含版本号的窗口标题
     let window_title = format!("Log Viewer v{}", version);
 
-    // 使用 eframe 创建窗口
+    // Create and run application window
     let options = eframe::NativeOptions::default();
     let _ = eframe::run_native(
         &window_title,
@@ -56,11 +55,11 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // 将按钮和日志级别下拉框放在同一行
+            // Top control bar: buttons and log level selector
             ui.horizontal(|ui| {
-                // 左侧放置按钮
+                // Left side: test buttons
                 if ui.button("Info").clicked() {
-                    info!("Info button clicked.");
+                    info!("Info button clicked");
                 }
                 if ui.button("Debug").clicked() {
                     log::debug!("This is a debug message");
@@ -69,13 +68,14 @@ impl eframe::App for MyApp {
                     log::error!("This is an error message");
                 }
                 if ui.button("Clear Logs").clicked() {
-                    info!("Clear Logs button clicked.");
+                    info!("Clear Logs button clicked");
                     self.log_view.clear();
                 }
 
+                // Keyboard input control buttons
                 if self.is_key_press_running {
                     if ui.button("Stop Key Press").clicked() {
-                        info!("Stop Key Press button clicked.");
+                        info!("Stop Key Press button clicked");
                         if let Some(sender) = self.key_press_sender.take() {
                             stop_keyboard_input(sender);
                             self.is_key_press_running = false;
@@ -83,14 +83,14 @@ impl eframe::App for MyApp {
                     }
                 } else {
                     if ui.button("Start Key Press").clicked() {
-                        info!("Start Key Press button clicked.");
+                        info!("Start Key Press button clicked");
                         let sender = start_keyboard_input();
                         self.key_press_sender = Some(sender);
                         self.is_key_press_running = true;
                     }
                 }
 
-                // 右侧放置日志级别下拉框
+                // Right side: log level selector
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label("Log Level:");
                     ComboBox::from_id_salt("log_level")
@@ -112,13 +112,13 @@ impl eframe::App for MyApp {
                 });
             });
 
-            // 添加一个分隔线
             ui.separator();
 
-            // 显示日志视图
+            // Display log view
             self.log_view.ui(ui);
         });
 
+        // Trace level warning dialog
         if self.show_trace_warning {
             Window::new("Warning")
                 .collapsible(false)
