@@ -13,13 +13,18 @@ A desktop application built with Rust and egui that monitors keyboard input and 
 ## Project Structure
 
 ```
-src/
-├── logger/
-│   ├── mod.rs          # Logger module exports
-│   ├── collector.rs    # Log collector implementation
-│   └── view.rs         # Log view UI component
-├── keyboard_controller.rs  # Keyboard input controller
-└── main.rs             # Application entry point
+├── build.ps1           # Build script
+├── build.rs            # Cargo build script (icon embedding)
+├── resources/
+│   └── app_icon.ico    # Application icon
+├── src/
+│   ├── logger/
+│   │   ├── mod.rs          # Logger module exports
+│   │   ├── collector.rs    # Log collector implementation
+│   │   └── view.rs         # Log view UI component
+│   ├── keyboard_controller.rs  # Keyboard input controller
+│   └── main.rs             # Application entry point
+└── dist/               # Build output (generated)
 ```
 
 ## Prerequisites
@@ -34,35 +39,38 @@ src/
 git clone <repository-url>
 cd key-monitor-rust
 
-# Build in debug mode
-cargo build
+# Release build (default) - outputs to dist/
+.\build.ps1
 
-# Build in release mode
+# Debug build
+.\build.ps1 -Mode debug
+
+# Clean build artifacts
+.\build.ps1 -Clean
+
+# Or use cargo directly
 cargo build --release
 ```
+
+The release build uses LTO, single codegen unit, size optimization (`opt-level = "z"`), symbol stripping, and abort-on-panic to minimize binary size.
 
 ## Running
 
 ```bash
-# Run in debug mode
-cargo run
-
-# Run in release mode
+# Run directly
 cargo run --release
+
+# Or run from dist/
+.\dist\key-monitor-rust.exe
 ```
 
 ## Usage
 
 ### Log Controls
 
-- **Info/Debug/Error Buttons**: Generate test log messages
 - **Clear Logs**: Clear all displayed logs
+- **Start/Stop Key Press**: Begin or stop periodic NumLock key presses (green text = ready to start, red text = currently running)
 - **Log Level Dropdown**: Select the minimum log level to display
-
-### Keyboard Input Control
-
-- **Start Key Press**: Begin periodic NumLock key presses (every 2 minutes)
-- **Stop Key Press**: Stop the keyboard input thread
 
 ### Log Levels
 
@@ -126,4 +134,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Version
 
-Current version: 0.1.1
+Current version: 0.1.2

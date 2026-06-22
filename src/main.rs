@@ -3,7 +3,7 @@
 mod logger;
 mod keyboard_controller;
 
-use egui::{ComboBox, Layout, Align, Window};
+use egui::{ComboBox, Layout, Align, RichText, Window};
 use log::{LevelFilter, info};
 use std::sync::{mpsc, Arc, Mutex};
 use eframe;
@@ -57,24 +57,19 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Top control bar: buttons and log level selector
             ui.horizontal(|ui| {
-                // Left side: test buttons
-                if ui.button("Info").clicked() {
-                    info!("Info button clicked");
-                }
-                if ui.button("Debug").clicked() {
-                    log::debug!("This is a debug message");
-                }
-                if ui.button("Error").clicked() {
-                    log::error!("This is an error message");
-                }
-                if ui.button("Clear Logs").clicked() {
+                let btn_width = 100.0;
+                let btn_height = ui.spacing().interact_size.y;
+
+                if ui.add_sized([btn_width, btn_height], egui::Button::new("Clear Logs").rounding(4.0)).clicked() {
                     info!("Clear Logs button clicked");
                     self.log_view.clear();
                 }
 
-                // Keyboard input control buttons
                 if self.is_key_press_running {
-                    if ui.button("Stop Key Press").clicked() {
+                    let btn = egui::Button::new(
+                        RichText::new("Stop Key Press").color(egui::Color32::from_rgb(200, 50, 50))
+                    ).rounding(4.0);
+                    if ui.add_sized([btn_width, btn_height], btn).clicked() {
                         info!("Stop Key Press button clicked");
                         if let Some(sender) = self.key_press_sender.take() {
                             stop_keyboard_input(sender);
@@ -82,7 +77,10 @@ impl eframe::App for MyApp {
                         }
                     }
                 } else {
-                    if ui.button("Start Key Press").clicked() {
+                    let btn = egui::Button::new(
+                        RichText::new("Start Key Press").color(egui::Color32::from_rgb(50, 160, 50))
+                    ).rounding(4.0);
+                    if ui.add_sized([btn_width, btn_height], btn).clicked() {
                         info!("Start Key Press button clicked");
                         let sender = start_keyboard_input();
                         self.key_press_sender = Some(sender);
@@ -92,7 +90,6 @@ impl eframe::App for MyApp {
 
                 // Right side: log level selector
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label("Log Level:");
                     ComboBox::from_id_salt("log_level")
                         .selected_text(format!("{:?}", self.log_view.log_level))
                         .show_ui(ui, |ui| {
@@ -109,6 +106,7 @@ impl eframe::App for MyApp {
                                 }
                             }
                         });
+                    ui.label("Log Level:");
                 });
             });
 
@@ -125,11 +123,12 @@ impl eframe::App for MyApp {
                 .resizable(false)
                 .show(ctx, |ui| {
                     ui.label("Switching to Trace level will generate a large number of logs. Are you sure?");
-                    if ui.button("Yes").clicked() {
+                    let btn_width = 100.0;
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Yes")).clicked() {
                         self.log_view.log_level = LevelFilter::Trace;
                         self.show_trace_warning = false;
                     }
-                    if ui.button("No").clicked() {
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("No")).clicked() {
                         self.log_view.log_level = self.previous_log_level;
                         self.show_trace_warning = false;
                     }

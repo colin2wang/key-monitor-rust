@@ -666,7 +666,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
@@ -1693,7 +1692,7 @@ dependencies = [
 
 [[package]]
 name = "key-monitor-rust"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "eframe",
